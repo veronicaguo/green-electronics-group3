@@ -10,8 +10,8 @@
  */
 
 #include "lab2.h"
-#include "ge_system.h"
-#include "ge_adc.h"
+
+char lcd_print[16];
 
 
 // calibration parameters
@@ -24,19 +24,6 @@ uint16_t zero_amps;
 __IO uint16_t voltage_reading;
 __IO uint16_t current_reading;
 
-//ADC callbacks
-void calculate_power(uint16_t *data);
-
-float power_result;
-
-//initialize ADCs
-ge_init();
-adc_set_fs(10000);
-adc_callback(&calculate_power);
-//enable ADC channels
-adc_enable_channels([GE_A1, GE_A3], 2);
-adc_initialize_channels
-
 
 /**
  * @brief Calibrate out the 0V and 0A offsets
@@ -48,7 +35,9 @@ void calibrate_offset() {
   zero_amps = current_reading;
 
   //Store values in EEPROM
-
+  eeprom_init();
+  eeprom_write(0, zero_volts);
+  eeprom_write(2, zero_amps);
 }
 
 
@@ -59,8 +48,11 @@ void calibrate_offset() {
  */
 void calibrate_voltage() {
   //Code to calculate volts_per_div
+  eeprom_read(0, zero_volts);
+  volts_per_div = CAL_VOLTS / (voltage_reading - zero_volts);
 
   //Store values in EEPROM
+  eeprom_write(4, volts_per_div);
 }
 
 
@@ -71,8 +63,11 @@ void calibrate_voltage() {
  */
 void calibrate_current() {
   //Code to calculate amps_per_div
+  eeprom_read(2, zero_amps);
+  amps_per_div = CAL_CURR / (current_reading - zero_amps);
 
   //Store values in EEPROM
+  eeprom_write(8, amps_per_div);
 }
 
 
@@ -82,8 +77,10 @@ void calibrate_current() {
  */
 void meter_init() {
   //Read in calibration constants from EEPROM
-
-  
+  eeprom_read(0, zero_volts);
+  eeprom_read(2, zero_amps);
+  eeprom_read(4, volts_per_div);
+  eeprom_read(8, amps_per_div);  
 }
 
 
@@ -94,6 +91,14 @@ void meter_init() {
  */
 void meter_display() {
   //Code here
+  voltage_result = (voltage_reading - zero_volts) * volts_per_div;
+  current_result = (current_reading - zero_amps) * amps_per_div;
+  power_result = voltage_result * current_result;
+
+  lcd_clear();
+  lcd_goto(0, 0);
+  snprintf(lcd_print, 16, "Power: %.2f", power_result);
+  lcd_puts(lcd_print);
 }
 
 
