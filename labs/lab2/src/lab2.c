@@ -10,6 +10,8 @@
  */
 
 #include "lab2.h"
+#include "ge_system.h"
+#include "ge_adc.h"
 
 
 // calibration parameters
@@ -21,6 +23,19 @@ uint16_t zero_amps;
 //current readings
 __IO uint16_t voltage_reading;
 __IO uint16_t current_reading;
+
+//ADC callbacks
+void calculate_power(uint16_t *data);
+
+float power_result;
+
+//initialize ADCs
+ge_init();
+adc_set_fs(10000);
+adc_callback(&calculate_power);
+//enable ADC channels
+adc_enable_channels([GE_A1, GE_A3], 2);
+adc_initialize_channels
 
 
 /**
