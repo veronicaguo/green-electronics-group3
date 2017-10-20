@@ -126,7 +126,8 @@ void meter_init() {
 float average(float *arr){
   int i;
   float sum, avg;
-  int n = sizeof(arr)/sizeof(arr[0]);
+  int n = 50;
+  //int n = sizeof(arr)/sizeof(arr[0]);
   //loop through each element of the array
   for (i = 0; i<n; ++i){
     sum += arr[i];
