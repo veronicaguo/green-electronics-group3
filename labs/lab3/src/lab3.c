@@ -119,7 +119,7 @@ void meter_init() {
 
   voltage_reading_previous = 0.0;
   current_reading_previous = 0.0;
-  shift = 9.0;
+  shift = 6.0;
 }
 
 
@@ -166,25 +166,27 @@ void meter_display() {
 
   // voltage, current, power calculation and filter
 
-  /*
-  voltage_reading_filtered = (voltage_reading_previous - (voltage_reading_previous >> shift) + voltage_reading) >> 1;
+
+  voltage_reading_filtered = voltage_reading_previous - (voltage_reading_previous >> shift) + (voltage_reading >> shift);
   voltage_result = ((float) voltage_reading_filtered - (float) zero_volts) * volts_per_div;  
 
-  current_reading_filtered = (current_reading_previous - (current_reading_previous >> shift) + current_reading) >> 1;
+  current_reading_filtered = current_reading_previous - (current_reading_previous >> shift) + (current_reading >> shift);
   current_result = ((float) current_reading_filtered - (float) zero_amps) * amps_per_div;
   
   power_result = voltage_result * current_result;
 
+  voltage_reading_previous = voltage_reading_filtered;
+  current_reading_previous = current_reading_filtered; 
+
+  /*
   voltage_result = ((float) voltage_reading - (float) zero_volts) * volts_per_div;  
   current_result = ((float) current_reading - (float) zero_amps) * amps_per_div;
 
-  voltage_reading_previous = voltage_reading_filtered;
-  current_reading_previous = current_reading_filtered;
+  voltage_result = ((float) voltage_reading - (float) zero_volts) * volts_per_div;  
+  current_result = ((float) current_reading - (float) zero_amps) * amps_per_div;
   */
 
-  voltage_result = ((float) voltage_reading - (float) zero_volts) * volts_per_div;  
-  current_result = ((float) current_reading - (float) zero_amps) * amps_per_div;
-
+  //Average filter attempt 1
   /*
   lcd_goto(0, 0);
   snprintf(lcd_print_power, 50, "Power: ");
@@ -236,14 +238,18 @@ void meter_display() {
   }
   */
   
+  // Average filter attempt 2
+  /*
   for (i = 0; i < 50; i++) {
     voltage_stored[i] = voltage_result;
     current_stored[i] = current_result;
   }
 
   voltage_result_filtered = average(voltage_stored);
-  current_result_filtered = average(current_stored);
+  current_result_filtered = average(current_stored);  
+
   power_result = voltage_result_filtered * current_result_filtered;
+  */
 
   lcd_clear();
 
@@ -267,10 +273,10 @@ void meter_display() {
   snprintf(lcd_print_power, 50, "Power: %.5f", power_result);
   lcd_puts(lcd_print_power);
   lcd_goto(0, 1);
-  snprintf(lcd_print_voltage, 50, "Voltage: %.5f", voltage_result_filtered);
+  snprintf(lcd_print_voltage, 50, "Voltage: %.5f", voltage_result);
   lcd_puts(lcd_print_voltage);
   lcd_goto(0, 2);
-  snprintf(lcd_print_current, 50, "Current: %.5f", current_result_filtered);
+  snprintf(lcd_print_current, 50, "Current: %.5f", current_result);
   lcd_puts(lcd_print_current);
   /*
   lcd_goto(0, 3);
