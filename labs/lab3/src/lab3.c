@@ -11,7 +11,10 @@
 
 #include "lab3.h"
 
-char lcd_print[50];
+char lcd_print_power[50];
+char lcd_print_voltage[50];
+char lcd_print_current[50];
+char lcd_print_df[50];
 
 
 // calibration parameters
@@ -32,11 +35,23 @@ uint16_t  current_reading_filtered;
 float power_result;
 int  shift;
 
+// filter parameters
+float voltage_stored[50];
+float current_stored[50];
+int i;
+float error_vol;
+float error_cur;
+float voltage_result_filtered;
+float current_result_filtered;
+float voltage_result_filtered_old;
+float current_result_filtered_old;
+float error_th;
+
 
 // MPPT calculation parameters
-float df = 0.5;
-float delta_df = 0.01;
-float old_df = 0.5;
+float df = INITIAL_DUTY_FACTOR;
+float delta_df = DELTA_DF;
+float old_df;
 float old_power = 0.0;
 
 
@@ -108,6 +123,19 @@ void meter_init() {
 }
 
 
+float average(float *arr){
+  int i;
+  float sum, avg;
+  int n = sizeof(arr)/sizeof(arr[0]);
+  //loop through each element of the array
+  for (i = 0; i<n; ++i){
+    sum += arr[i];
+  }
+  avg = sum/n;
+  return avg;
+}
+
+
 /**
  * @brief Displays energy meter data
  * @details Replace with code to update the display with
@@ -132,39 +160,124 @@ void meter_display() {
   volts_per_div = CAL_VOLTS / ((float) voltage_reading_10v - (float) zero_volts);
   amps_per_div = CAL_CURR / ((float) current_reading_3a - (float) zero_amps);
 
-  while (1){
-    df = df + delta_df;
-    pwm_set(PWM_CHAN2, df);
+  df = df + delta_df;
+  pwm_set(PWM_CHAN2, df);
 
-    // voltage, current, power calculation and filter
-    voltage_reading_filtered = (voltage_reading_previous - (voltage_reading_previous >> shift) + voltage_reading) >> 1;
-    voltage_result = ((float) voltage_reading_filtered - (float) zero_volts) * volts_per_div;  
+  // voltage, current, power calculation and filter
+
+  /*
+  voltage_reading_filtered = (voltage_reading_previous - (voltage_reading_previous >> shift) + voltage_reading) >> 1;
+  voltage_result = ((float) voltage_reading_filtered - (float) zero_volts) * volts_per_div;  
+
+  current_reading_filtered = (current_reading_previous - (current_reading_previous >> shift) + current_reading) >> 1;
+  current_result = ((float) current_reading_filtered - (float) zero_amps) * amps_per_div;
   
-    current_reading_filtered = (current_reading_previous - (current_reading_previous >> shift) + current_reading) >> 1;
-    current_result = ((float) current_reading_filtered - (float) zero_amps) * amps_per_div;
-  
-    power_result = voltage_result * current_result;
+  power_result = voltage_result * current_result;
 
-    voltage_reading_previous = voltage_reading_filtered;
-    current_reading_previous = current_reading_filtered;
+  voltage_result = ((float) voltage_reading - (float) zero_volts) * volts_per_div;  
+  current_result = ((float) current_reading - (float) zero_amps) * amps_per_div;
 
-    if (power_result > old_power){
-      old_power = power_result;
-      old_df = df;
+  voltage_reading_previous = voltage_reading_filtered;
+  current_reading_previous = current_reading_filtered;
+  */
+
+  voltage_result = ((float) voltage_reading - (float) zero_volts) * volts_per_div;  
+  current_result = ((float) current_reading - (float) zero_amps) * amps_per_div;
+
+  /*
+  lcd_goto(0, 0);
+  snprintf(lcd_print_power, 50, "Power: ");
+  lcd_puts(lcd_print_power);
+  lcd_goto(0, 1);
+  snprintf(lcd_print_voltage, 50, "Voltage: ");
+  lcd_puts(lcd_print_voltage);
+  lcd_goto(0, 2);
+  snprintf(lcd_print_current, 50, "Current: ");
+  lcd_puts(lcd_print_current);
+  lcd_goto(0, 3);
+  snprintf(lcd_print_df, 50, "Duty: ");
+  lcd_puts(lcd_print_df);
+
+  i = 0;
+  error_vol = 0;
+  error_cur = 0;
+  voltage_result_filtered_old = 0;
+  current_result_filtered_old = 0;
+  error_th = 1;
+
+  while (1) {
+    voltage_stored[i % 50] = voltage_result;
+    voltage_result_filtered = average(voltage_stored);
+    error_vol = (voltage_result_filtered - voltage_result_filtered_old) / voltage_result_filtered;
+    voltage_result_filtered_old = voltage_result_filtered;
+
+    current_stored[i % 50] = current_result;
+    current_result_filtered = average(current_stored);
+    error_cur = (current_result_filtered - current_result_filtered_old) / current_result_filtered;
+    current_result_filtered_old = current_result_filtered;
+
+    if (error_vol < 0) {
+      error_vol = -error_vol;
+    }
+    if (error_cur < 0) {
+      error_cur = -error_cur;
+    }
+
+    if (error_vol < error_th && error_cur < error_th){
+      break;
     }
     else {
-      df = old_df;
-      delta_df = - delta_df;
+      i++;
+      if (i % 50 == 0) {
+        i = 0;
+      }
     }
-
-    // Display
-    lcd_clear();
-    lcd_goto(0, 0);
-    snprintf(lcd_print, 50, "Power: %.5f\nV: %.5f\nI: %.5f\nD: %.2f", power_result, voltage_result, current_result, df);
-    lcd_puts(lcd_print);
+  }
+  */
+  
+  for (i = 0; i < 50; i++) {
+    voltage_stored[i] = voltage_result;
+    current_stored[i] = current_result;
   }
 
-  
+  voltage_result_filtered = average(voltage_stored);
+  current_result_filtered = average(current_stored);
+  power_result = voltage_result_filtered * current_result_filtered;
+
+  lcd_clear();
+
+  if (power_result > old_power){
+    old_power = power_result;
+    old_df = df;
+    lcd_goto(0, 3);
+    snprintf(lcd_print_df, 50, "Duty: %.5f", df);
+    lcd_puts(lcd_print_df);
+  }
+  else {
+    lcd_goto(0, 3);
+    snprintf(lcd_print_df, 50, "Duty: %.5f", df);
+    lcd_puts(lcd_print_df);
+    df = old_df;
+    delta_df = - delta_df;
+  }
+
+  // Display
+  lcd_goto(0, 0);
+  snprintf(lcd_print_power, 50, "Power: %.5f", power_result);
+  lcd_puts(lcd_print_power);
+  lcd_goto(0, 1);
+  snprintf(lcd_print_voltage, 50, "Voltage: %.5f", voltage_result_filtered);
+  lcd_puts(lcd_print_voltage);
+  lcd_goto(0, 2);
+  snprintf(lcd_print_current, 50, "Current: %.5f", current_result_filtered);
+  lcd_puts(lcd_print_current);
+  /*
+  lcd_goto(0, 3);
+  snprintf(lcd_print_df, 50, "Duty: %.5f", df);
+  lcd_puts(lcd_print_df);
+  */
+  //df = df + delta_df;
+  //delay_ms(200);
 }
 
 

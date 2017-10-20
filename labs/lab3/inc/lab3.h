@@ -12,6 +12,10 @@
 #define CAL_VOLTS 10.0
 #define CAL_CURR  3.0
 
+//MPPT parameters
+#define INITIAL_DUTY_FACTOR  0.25
+#define DELTA_DF  0.001
+
 //Initialize the energy meter
 void meter_init();
 
