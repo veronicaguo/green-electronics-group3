@@ -16,44 +16,32 @@ char lcd_print_voltage[50];
 char lcd_print_current[50];
 char lcd_print_df[50];
 
-
 // calibration parameters
 float  volts_per_div;
 float  amps_per_div;
-uint16_t volts_per_div_uint16_t;
-uint16_t amps_per_div_uint16_t;
 uint16_t zero_volts;
 uint16_t zero_amps;
 uint16_t voltage_reading_10v;
 uint16_t current_reading_3a;
 float  voltage_result;
 uint16_t  voltage_reading_previous;
-uint16_t  voltage_reading_filtered;
 float  current_result;
 uint16_t  current_reading_previous;
-uint16_t  current_reading_filtered;
 float power_result;
 int  shift;
 
 // filter parameters
-//float voltage_stored[50];
-//float current_stored[50];
-//int i;
-//float error_vol;
-//float error_cur;
+float voltage_stored[50];
+float current_stored[50];
+int i;
 float voltage_result_filtered;
 float current_result_filtered;
-float voltage_result_filtered_old;
-float current_result_filtered_old;
-//float error_th;
-
 
 // MPPT calculation parameters
 float df = INITIAL_DUTY_FACTOR;
 float delta_df = DELTA_DF;
 float old_df = 0;
 float old_power = 0.0;
-
 
 //current readings
 __IO uint16_t voltage_reading;
@@ -122,7 +110,7 @@ void meter_init() {
   shift = 5.0;
 }
 
-/*
+
 float average(float *arr){
   int i;
   float sum, avg;
@@ -135,7 +123,7 @@ float average(float *arr){
   avg = sum/n;
   return avg;
 }
-*/
+
 
 /**
  * @brief Displays energy meter data
@@ -162,28 +150,21 @@ void meter_display() {
   amps_per_div = CAL_CURR / ((float) current_reading_3a - (float) zero_amps);
 
   while (true){
-
-  //df = df + delta_df;
     pwm_set(PWM_CHAN2, df);
 
   // voltage, current, power calculation and filter
-
-    voltage_reading_filtered = voltage_reading_previous - (voltage_reading_previous >> shift) + (voltage_reading >> shift);
-    voltage_result = ((float) voltage_reading_filtered - (float) zero_volts) * volts_per_div;  
-
-    current_reading_filtered = current_reading_previous - (current_reading_previous >> shift) + (current_reading >> shift);
-    current_result = ((float) current_reading_filtered - (float) zero_amps) * amps_per_div;
-    
-    power_result = voltage_result * current_result;
-
-    voltage_reading_previous = voltage_reading_filtered;
-    current_reading_previous = current_reading_filtered; 
+    for (i = 0; i < 50; i++) {
+      voltage_result = ((float) voltage_reading - (float) zero_volts) * volts_per_div;  
+      current_result = ((float) current_reading - (float) zero_amps) * amps_per_div;
+      voltage_stored[i] = voltage_result;
+      current_stored[i] = current_result;
+    }
+  // power calculation using filtered (averaged) voltage and current
+    voltage_result_filtered = average(voltage_stored);
+    current_result_filtered = average(current_stored);
+    power_result = voltage_result_filtered * current_result_filtered;
 
   // MPPT
-
-  //lcd_clear();
-  
-    delay_ms(50); 
     // Display
     lcd_goto(0, 0);
     snprintf(lcd_print_power, 50, "Power: %.5f", power_result);
@@ -197,9 +178,6 @@ void meter_display() {
     lcd_goto(0, 3);
     snprintf(lcd_print_df, 50, "Duty: %.5f", df);
     lcd_puts(lcd_print_df);
-    
-    // old_power starts at 0
-    // old_df = 0
     
     if (power_result > old_power){
       old_power = power_result;
@@ -220,18 +198,9 @@ void meter_display() {
       
     }
     
-
     if (!gpio_read_pin(GE_PBTN1)) break;
     
   }
-  
-  /*
-  lcd_goto(0, 3);
-  snprintf(lcd_print_df, 50, "Duty: %.5f", df);
-  lcd_puts(lcd_print_df);
-  */
-  //df = df + delta_df;
-  //delay_ms(200);
 }  
 
 
