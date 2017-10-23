@@ -36,22 +36,22 @@ float power_result;
 int  shift;
 
 // filter parameters
-float voltage_stored[50];
-float current_stored[50];
-int i;
-float error_vol;
-float error_cur;
+//float voltage_stored[50];
+//float current_stored[50];
+//int i;
+//float error_vol;
+//float error_cur;
 float voltage_result_filtered;
 float current_result_filtered;
 float voltage_result_filtered_old;
 float current_result_filtered_old;
-float error_th;
+//float error_th;
 
 
 // MPPT calculation parameters
 float df = INITIAL_DUTY_FACTOR;
 float delta_df = DELTA_DF;
-float old_df;
+float old_df = 0;
 float old_power = 0.0;
 
 
@@ -117,12 +117,12 @@ void meter_init() {
   eeprom_read(30, &voltage_reading_10v);
   eeprom_read(40, &current_reading_3a);   
 
-  voltage_reading_previous = 0.0;
-  current_reading_previous = 0.0;
-  shift = 6.0;
+  voltage_reading_previous = 2090.0;
+  current_reading_previous = 2048.0;
+  shift = 5.0;
 }
 
-
+/*
 float average(float *arr){
   int i;
   float sum, avg;
@@ -135,7 +135,7 @@ float average(float *arr){
   avg = sum/n;
   return avg;
 }
-
+*/
 
 /**
  * @brief Displays energy meter data
@@ -161,123 +161,70 @@ void meter_display() {
   volts_per_div = CAL_VOLTS / ((float) voltage_reading_10v - (float) zero_volts);
   amps_per_div = CAL_CURR / ((float) current_reading_3a - (float) zero_amps);
 
-  df = df + delta_df;
-  pwm_set(PWM_CHAN2, df);
+  while (true){
+
+  //df = df + delta_df;
+    pwm_set(PWM_CHAN2, df);
 
   // voltage, current, power calculation and filter
 
+    voltage_reading_filtered = voltage_reading_previous - (voltage_reading_previous >> shift) + (voltage_reading >> shift);
+    voltage_result = ((float) voltage_reading_filtered - (float) zero_volts) * volts_per_div;  
 
-  voltage_reading_filtered = voltage_reading_previous - (voltage_reading_previous >> shift) + (voltage_reading >> shift);
-  voltage_result = ((float) voltage_reading_filtered - (float) zero_volts) * volts_per_div;  
+    current_reading_filtered = current_reading_previous - (current_reading_previous >> shift) + (current_reading >> shift);
+    current_result = ((float) current_reading_filtered - (float) zero_amps) * amps_per_div;
+    
+    power_result = voltage_result * current_result;
 
-  current_reading_filtered = current_reading_previous - (current_reading_previous >> shift) + (current_reading >> shift);
-  current_result = ((float) current_reading_filtered - (float) zero_amps) * amps_per_div;
+    voltage_reading_previous = voltage_reading_filtered;
+    current_reading_previous = current_reading_filtered; 
+
+  // MPPT
+
+  //lcd_clear();
   
-  power_result = voltage_result * current_result;
-
-  voltage_reading_previous = voltage_reading_filtered;
-  current_reading_previous = current_reading_filtered; 
-
-  /*
-  voltage_result = ((float) voltage_reading - (float) zero_volts) * volts_per_div;  
-  current_result = ((float) current_reading - (float) zero_amps) * amps_per_div;
-
-  voltage_result = ((float) voltage_reading - (float) zero_volts) * volts_per_div;  
-  current_result = ((float) current_reading - (float) zero_amps) * amps_per_div;
-  */
-
-  //Average filter attempt 1
-  /*
-  lcd_goto(0, 0);
-  snprintf(lcd_print_power, 50, "Power: ");
-  lcd_puts(lcd_print_power);
-  lcd_goto(0, 1);
-  snprintf(lcd_print_voltage, 50, "Voltage: ");
-  lcd_puts(lcd_print_voltage);
-  lcd_goto(0, 2);
-  snprintf(lcd_print_current, 50, "Current: ");
-  lcd_puts(lcd_print_current);
-  lcd_goto(0, 3);
-  snprintf(lcd_print_df, 50, "Duty: ");
-  lcd_puts(lcd_print_df);
-
-  i = 0;
-  error_vol = 0;
-  error_cur = 0;
-  voltage_result_filtered_old = 0;
-  current_result_filtered_old = 0;
-  error_th = 1;
-
-  while (1) {
-    voltage_stored[i % 50] = voltage_result;
-    voltage_result_filtered = average(voltage_stored);
-    error_vol = (voltage_result_filtered - voltage_result_filtered_old) / voltage_result_filtered;
-    voltage_result_filtered_old = voltage_result_filtered;
-
-    current_stored[i % 50] = current_result;
-    current_result_filtered = average(current_stored);
-    error_cur = (current_result_filtered - current_result_filtered_old) / current_result_filtered;
-    current_result_filtered_old = current_result_filtered;
-
-    if (error_vol < 0) {
-      error_vol = -error_vol;
-    }
-    if (error_cur < 0) {
-      error_cur = -error_cur;
-    }
-
-    if (error_vol < error_th && error_cur < error_th){
-      break;
-    }
-    else {
-      i++;
-      if (i % 50 == 0) {
-        i = 0;
+    delay_ms(50); 
+    // Display
+    lcd_goto(0, 0);
+    snprintf(lcd_print_power, 50, "Power: %.5f", power_result);
+    lcd_puts(lcd_print_power);
+    lcd_goto(0, 1);
+    snprintf(lcd_print_voltage, 50, "Voltage: %.5f", voltage_result);
+    lcd_puts(lcd_print_voltage);
+    lcd_goto(0, 2);
+    snprintf(lcd_print_current, 50, "Current: %.5f", current_result);
+    lcd_puts(lcd_print_current);
+    lcd_goto(0, 3);
+    snprintf(lcd_print_df, 50, "Duty: %.5f", df);
+    lcd_puts(lcd_print_df);
+    
+    // old_power starts at 0
+    // old_df = 0
+    
+    if (power_result > old_power){
+      old_power = power_result;
+      old_df = df;
+      df = df + delta_df;
+      if (df > 1.0) {
+        df = 1.0;
       }
     }
+    else {
+      df = old_df;
+      df = df - delta_df;
+      old_power = 0;
+      
+      if (df < 0.05) {
+        df = 0.05;
+      }
+      
+    }
+    
+
+    if (!gpio_read_pin(GE_PBTN1)) break;
+    
   }
-  */
   
-  // Average filter attempt 2
-  /*
-  for (i = 0; i < 50; i++) {
-    voltage_stored[i] = voltage_result;
-    current_stored[i] = current_result;
-  }
-
-  voltage_result_filtered = average(voltage_stored);
-  current_result_filtered = average(current_stored);  
-
-  power_result = voltage_result_filtered * current_result_filtered;
-  */
-
-  lcd_clear();
-
-  if (power_result > old_power){
-    old_power = power_result;
-    old_df = df;
-    lcd_goto(0, 3);
-    snprintf(lcd_print_df, 50, "Duty: %.5f", df);
-    lcd_puts(lcd_print_df);
-  }
-  else {
-    lcd_goto(0, 3);
-    snprintf(lcd_print_df, 50, "Duty: %.5f", df);
-    lcd_puts(lcd_print_df);
-    df = old_df;
-    delta_df = - delta_df;
-  }
-
-  // Display
-  lcd_goto(0, 0);
-  snprintf(lcd_print_power, 50, "Power: %.5f", power_result);
-  lcd_puts(lcd_print_power);
-  lcd_goto(0, 1);
-  snprintf(lcd_print_voltage, 50, "Voltage: %.5f", voltage_result);
-  lcd_puts(lcd_print_voltage);
-  lcd_goto(0, 2);
-  snprintf(lcd_print_current, 50, "Current: %.5f", current_result);
-  lcd_puts(lcd_print_current);
   /*
   lcd_goto(0, 3);
   snprintf(lcd_print_df, 50, "Duty: %.5f", df);
@@ -285,7 +232,7 @@ void meter_display() {
   */
   //df = df + delta_df;
   //delay_ms(200);
-}
+}  
 
 
 /**
