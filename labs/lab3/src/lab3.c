@@ -163,7 +163,7 @@ void meter_display() {
 
   while (true){
 
-  //df = df + delta_df;
+    //df = df + delta_df;
     pwm_set(PWM_CHAN2, df);
 
   // voltage, current, power calculation and filter
@@ -180,10 +180,6 @@ void meter_display() {
     current_reading_previous = current_reading_filtered; 
 
   // MPPT
-
-  //lcd_clear();
-  
-    delay_ms(50); 
     // Display
     lcd_goto(0, 0);
     snprintf(lcd_print_power, 50, "Power: %.5f", power_result);
@@ -200,24 +196,24 @@ void meter_display() {
     
     // old_power starts at 0
     // old_df = 0
-    
+    df = df + delta_df;
     if (power_result > old_power){
       old_power = power_result;
       old_df = df;
-      df = df + delta_df;
+      //df = df + delta_df;
       if (df > 1.0) {
         df = 1.0;
       }
     }
     else {
       df = old_df;
-      df = df - delta_df;
+      //df = df - delta_df;
+      delta_df = -1.0 * delta_df;
       old_power = 0;
       
-      if (df < 0.05) {
-        df = 0.05;
+      if (df < 0.5) {
+        df = 0.5;
       }
-      
     }
     
 

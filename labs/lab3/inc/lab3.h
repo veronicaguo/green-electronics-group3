@@ -13,7 +13,7 @@
 #define CAL_CURR  3.0
 
 //MPPT parameters
-#define INITIAL_DUTY_FACTOR  0.5
+#define INITIAL_DUTY_FACTOR  0.75
 #define DELTA_DF  0.01
 
 //Initialize the energy meter
